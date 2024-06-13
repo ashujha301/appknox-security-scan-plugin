@@ -1,28 +1,90 @@
-# appknox-jenkins-extension
+# Appknox Jenkins Plugiin
 
-## Introduction
+The Appknox Jenkins Plugin allows you to perform Appknox security scan on your mobile application binary. The APK/IPA built from your CI pipeline will be uploaded to Appknox platform which performs static scan and the build will be errored according to the chosen risk threshold.
 
-TODO Describe what your plugin does here
+## How to use it?
 
-## Getting started
+### Step 1: Get your Appknox access token
 
-TODO Tell users how to configure your plugin here, include screenshots, pipeline examples and 
-configuration-as-code examples.
+Sign up on [Appknox](https://appknox.com).
 
-## Issues
+Generate a personal access token from <a href="https://secure.appknox.com/settings/developersettings" target="_blank">Developer Settings</a>
 
-TODO Decide where you're going to host your issues, the default is Jenkins JIRA, but you can also enable GitHub issues,
-If you use GitHub issues there's no need for this section; else add the following line:
+### Step 2: Configure the Jenkins Plugin
 
-Report issues and enhancements in the [Jenkins issue tracker](https://issues.jenkins.io/).
+In your Jenkinsfile Add this after building your Application stage.
 
-## Contributing
+```
+stage('Appknox Scan') {
+            steps {
+                script {
+                    def apkFilePath = 'app/build/outputs/apk/debug/app-debug.apk'  // Adjust this path as necessary
+                    def accessToken = params.APPKNOX_ACCESS_TOKEN
+                    def riskThreshold = params.RISK_THRESHOLD
 
-TODO review the default [CONTRIBUTING](https://github.com/jenkinsci/.github/blob/master/CONTRIBUTING.md) file and make sure it is appropriate for your plugin, if not then add your own one adapted from the base file
+                    // Trigger Appknox Jenkins Plugin
+                    build job: 'appknox-jenkins-plugin', 
+                    parameters: [
+                        string(name: 'APPKNOX_ACCESS_TOKEN', value: accessToken),
+                        string(name: 'FILE_PATH', value: apkFilePath),
+                        string(name: 'RISK_THRESHOLD', value: riskThreshold)
+                    ]
+                }
+            }
+        }
+```
 
-Refer to our [contribution guidelines](https://github.com/jenkinsci/.github/blob/master/CONTRIBUTING.md)
+## Inputs
 
-## LICENSE
+| Key                     | Value                        |
+|-------------------------|------------------------------|
+| `appknox_access_token`  | Personal access token secret |
+| `file_path`             | File path to the mobile application binary to be uploaded |
+| `risk_threshold`        | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
 
-Licensed under MIT, see [LICENSE](LICENSE.md)
+---
 
+Example:
+```
+pipeline {
+    agent any
+    
+    parameters {
+        string(name: 'APPKNOX_ACCESS_TOKEN', defaultValue: '', description: 'Appknox Access Token')
+        string(name: 'RISK_THRESHOLD', defaultValue: 'LOW', description: 'Risk Threshold')
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh './gradlew build'  // Assuming the customer uses Gradle to build their project
+            }
+        }
+        
+        stage('Appknox Scan') {
+            steps {
+                script {
+                    def apkFilePath = 'app/build/outputs/apk/debug/app-debug.apk'  // Adjust this path as necessary
+                    def accessToken = params.APPKNOX_ACCESS_TOKEN
+                    def riskThreshold = params.RISK_THRESHOLD
+
+                    // Trigger Appknox Jenkins Plugin
+                    build job: 'appknox-jenkins-plugin', 
+                    parameters: [
+                        string(name: 'APPKNOX_ACCESS_TOKEN', value: accessToken),
+                        string(name: 'FILE_PATH', value: apkFilePath),
+                        string(name: 'RISK_THRESHOLD', value: riskThreshold)
+                    ]
+                }
+            }
+        }
+    }
+}
+
+```
