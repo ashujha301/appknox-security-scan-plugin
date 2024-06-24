@@ -1,4 +1,4 @@
-# Appknox Jenkins Plugiin
+# Appknox Jenkins Plugin
 
 The Appknox Jenkins Plugin allows you to perform Appknox security scan on your mobile application binary. The APK/IPA built from your CI pipeline will be uploaded to Appknox platform which performs static scan and the build will be errored according to the chosen risk threshold.
 
@@ -15,30 +15,30 @@ Generate a personal access token from <a href="https://secure.appknox.com/settin
 In your Jenkinsfile Add this after building your Application stage.
 
 ```
-stage('Appknox Scan') {
+stages {
+        stage('Appknox Scan') {
             steps {
                 script {
-                    def apkFilePath = 'app/build/outputs/apk/debug/app-debug.apk'  // Adjust this path as necessary
-                    def accessToken = params.APPKNOX_ACCESS_TOKEN
-                    def riskThreshold = params.RISK_THRESHOLD
-
-                    // Trigger Appknox Jenkins Plugin
-                    build job: 'appknox-jenkins-plugin', 
-                    parameters: [
-                        string(name: 'APPKNOX_ACCESS_TOKEN', value: accessToken),
-                        string(name: 'FILE_PATH', value: apkFilePath),
-                        string(name: 'RISK_THRESHOLD', value: riskThreshold)
-                    ]
+                        // Perform Appknox scan using AppknoxPlugin
+                        step([
+                            $class: 'AppknoxPlugin',
+                            accessTokenID: 'your-accessToken-ID', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
+                            filePath: FILE_PATH,
+                            riskThreshold: params.RISK_THRESHOLD.toUpperCase()
+                        ])
+                    
                 }
             }
         }
+    }
+    
 ```
 
 ## Inputs
 
 | Key                     | Value                        |
 |-------------------------|------------------------------|
-| `appknox_access_token`  | Personal access token secret |
+| `accessTokenID`         | Personal access token secret id |
 | `file_path`             | File path to the mobile application binary to be uploaded |
 | `risk_threshold`        | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
 
@@ -48,43 +48,46 @@ Example:
 ```
 pipeline {
     agent any
-    
     parameters {
-        string(name: 'APPKNOX_ACCESS_TOKEN', defaultValue: '', description: 'Appknox Access Token')
-        string(name: 'RISK_THRESHOLD', defaultValue: 'LOW', description: 'Risk Threshold')
+        choice(name: 'RISK_THRESHOLD', choices: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], description: 'Risk Threshold')
     }
-    
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                git 'https://github.com/yourgithub/yourreponame'
             }
         }
-        
-        stage('Build') {
+        stage('Build App') {
             steps {
-                sh './gradlew build'  // Assuming the customer uses Gradle to build their project
+                // Build the app using own builder, Example given using gradle
+                script {
+                    if (isUnix()) {
+                        sh './gradlew build'
+                        FILE_PATH = "${WORKSPACE}/app/build/outputs/apk/debug/app-debug.apk"
+                    } else {
+                        bat './gradlew build'
+                        FILE_PATH = "${WORKSPACE}\\app\\build\\outputs\\apk\\debug\\app-debug.apk"
+                    }
+                    echo "Found APK: ${FILE_PATH}"
+                }
             }
         }
-        
         stage('Appknox Scan') {
             steps {
                 script {
-                    def apkFilePath = 'app/build/outputs/apk/debug/app-debug.apk'  // Adjust this path as necessary
-                    def accessToken = params.APPKNOX_ACCESS_TOKEN
-                    def riskThreshold = params.RISK_THRESHOLD
-
-                    // Trigger Appknox Jenkins Plugin
-                    build job: 'appknox-jenkins-plugin', 
-                    parameters: [
-                        string(name: 'APPKNOX_ACCESS_TOKEN', value: accessToken),
-                        string(name: 'FILE_PATH', value: apkFilePath),
-                        string(name: 'RISK_THRESHOLD', value: riskThreshold)
-                    ]
+                        // Perform Appknox scan using AppknoxPlugin
+                        step([
+                            $class: 'AppknoxPlugin',
+                            accessTokenID: 'appknox-access-token', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
+                            filePath: FILE_PATH,
+                            riskThreshold: params.RISK_THRESHOLD.toUpperCase()
+                        ])
+                    
                 }
             }
         }
     }
 }
+
 
 ```

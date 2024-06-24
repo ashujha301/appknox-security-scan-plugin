@@ -1,0 +1,23 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
+    xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <f:section title="Appknox Configuration">
+        <f:entry title="${%appknoxAccessToken}" field="appknoxAccessToken">
+            <f:textbox field = "appknoxAccessToken"/>
+        </f:entry>
+        <f:entry title="${%filepath}" field="filepath">
+            <f:textbox field = "filepath"/>
+        </f:entry>
+        <f:entry title="${%riskthreshold}" field="riskthreshold">
+            <select default="LOW">
+                <option value="LOW">low</option>
+                <option value="MEDIUM">medium</option>
+                <option value="HIGH">high</option>
+                <option value="CRITICAL">critical</option>
+            </select>
+        </f:entry>
+        <f:entry title="${%note}">
+			<p>${%requiredFields} </p>
+		</f:entry>
+    </f:section>
+</j:jelly>

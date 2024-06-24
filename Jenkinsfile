@@ -1,65 +1,42 @@
 pipeline {
     agent any
-
-    environment {
-        JAVA_HOME = '/usr/lib/jvm/java-11-openjdk-amd64'
-        PATH = "${env.JAVA_HOME}/bin:${env.PATH}"
-    }
-    
     parameters {
-        string(name: 'APPKNOX_ACCESS_TOKEN', defaultValue: '', description: 'Appknox Access Token')
-        string(name: 'FILE_PATH', defaultValue: '', description: 'Path to the Binary file')
         choice(name: 'RISK_THRESHOLD', choices: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], description: 'Risk Threshold')
     }
-    
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out main branch from repository...'
-                git branch: 'main', url: 'https://github.com/ashujha301/appknox-jenkins-plugin'
+                git 'https://github.com/ashujha301/mfva'
             }
         }
-        
-        stage('Download Appknox CLI') {
+        stage('Build App') {
             steps {
-                echo 'Downloading Appknox CLI...'
+                // Build the app using specific Gradle version
                 script {
-                    def appknoxCLI = new io.jenkins.plugins.appknox.AppknoxCommands()
-                    appknoxCLI.downloadAppknoxCLI()
+                    if (isUnix()) {
+                        sh './gradlew build'
+                        FILE_PATH = "${WORKSPACE}/app/build/outputs/apk/debug/app-debug.apk"
+                    } else {
+                        bat './gradlew build'
+                        FILE_PATH = "${WORKSPACE}\\app\\build\\outputs\\apk\\debug\\app-debug.apk"
+                    }
+                    echo "Found APK: ${FILE_PATH}"
                 }
             }
         }
-        
-        stage('Appknox Jenkins Plugin Execution') {
+        stage('Appknox Scan') {
             steps {
-                echo 'Executing Appknox Jenkins Plugin...'
                 script {
-                    def appknoxTool = new io.jenkins.plugins.appknox.AppknoxTool()
-                    def accessToken = params.APPKNOX_ACCESS_TOKEN
-                    def filePath = params.FILE_PATH
-                    def riskThreshold = params.RISK_THRESHOLD
+                        // Perform Appknox scan using AppknoxPlugin
+                        step([
+                            $class: 'AppknoxPlugin',
+                            accessTokenID: 'appknox-access-token', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
+                            filePath: FILE_PATH,
+                            riskThreshold: params.RISK_THRESHOLD.toUpperCase()
+                        ])
                     
-                    appknoxTool.execute(accessToken, filePath, riskThreshold)
-
                 }
             }
-        }
-    }
-    
-    post {
-        always {
-            echo 'Cleaning up...'
-            // Remove the Appknox CLI binary
-            //sh 'rm -f ${env.HOME}/bin/appknox'
-        }
-        success {
-            echo 'Appknox Jenkins Plugin tasks completed successfully.'
-        }
-        failure {
-            echo 'Appknox Jenkins Plugin tasks failed.'
-        }
-        cleanup {
-            cleanWs()
         }
     }
 }
