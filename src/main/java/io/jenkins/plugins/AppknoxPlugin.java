@@ -7,6 +7,7 @@ import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Item;
+import hudson.model.ItemGroup;
 import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Run;
@@ -31,6 +32,7 @@ import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
 
 import java.io.BufferedReader;
@@ -40,6 +42,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.commons.io.FileUtils;
 
@@ -290,6 +293,19 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             return "Appknox Plugin";
         }
 
+        @SuppressWarnings("deprecation")
+        public ListBoxModel doFillCredentialsIdItems(@AncestorInPath ItemGroup<?> context) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            return new StandardListBoxModel()
+                    .includeEmptyValue()
+                    .includeMatchingAs(
+                            ACL.SYSTEM,
+                            context,
+                            StringCredentials.class,
+                            URIRequirementBuilder.fromUri("").build(),
+                            CredentialsMatchers.instanceOf(StringCredentials.class));
+        }
+
         public FormValidation doCheckCredentialsId(@QueryParameter String value) {
             if (value.isEmpty()) {
                 return FormValidation.error("Appknox Access Token ID must not be empty");
@@ -305,7 +321,8 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
 
         public FormValidation doCheckRiskThreshold(@QueryParameter String value) {
-            if (value.isEmpty() || (!value.equals("LOW") && !value.equals("MEDIUM") && !value.equals("HIGH") && !value.equals("CRITICAL"))) {
+            if (value.isEmpty() || (!value.equals("LOW") && !value.equals("MEDIUM") && !value.equals("HIGH")
+                    && !value.equals("CRITICAL"))) {
                 return FormValidation.error("Risk Threshold must be one of: LOW, MEDIUM, HIGH, CRITICAL");
             }
             return FormValidation.ok();

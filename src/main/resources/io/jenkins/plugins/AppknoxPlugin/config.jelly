@@ -3,13 +3,13 @@
     xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
     <f:section title="Appknox Configuration">
         <f:entry title="${%credentialsId}" field="credentialsId">
-            <f:textbox field = "credentialsId"/>
+            <f:select field="credentialsId" />
         </f:entry>
         <f:entry title="${%filePath}" field="filePath">
             <f:textbox field = "filePath"/>
         </f:entry>
         <f:entry title="${%riskThreshold}" field="riskThreshold">
-            <select name="riskThreshold" default="LOW">
+            <select name="riskThreshold">
                 <option value="LOW" st:bind="true">LOW</option>
                 <option value="MEDIUM" st:bind="true">MEDIUM</option>
                 <option value="HIGH" st:bind="true">HIGH</option>
