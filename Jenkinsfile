@@ -30,7 +30,7 @@ pipeline {
                         // Perform Appknox scan using AppknoxPlugin
                         step([
                             $class: 'AppknoxPlugin',
-                            accessTokenID: 'appknox-access-token', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
+                            credentialsId: 'appknox-access-token', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
                             filePath: FILE_PATH,
                             riskThreshold: params.RISK_THRESHOLD.toUpperCase()
                         ])

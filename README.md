@@ -12,7 +12,7 @@ Generate a personal access token from <a href="https://secure.appknox.com/settin
 
 ### Step 2: Store Appknox Access Token in credentials
 
-Select Credentials from sideline from Manage Jenkins -> Security -> credentials:
+Select Credentials options from Manage Jenkins -> credentials:
 
 ![Credentials](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins1.png)
 
@@ -20,7 +20,7 @@ Store Appknox Access Token as Global credential:
 
 ![Global Credentials](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins2.png)
 
-Select Kind as Secret Text and store the Appknox Access Token with proper Id and description:
+Select Kind as Secret Text and store the Appknox Access Token with desired Id and description:
 
 ![Kind Credentials](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins4.png)
 
@@ -40,13 +40,18 @@ Add Appknox Plugin from build Step:
 
 ### Step 3: Configure Appknox Plugin
 
-Add Details in the Appknox Plugin Configuration:
+Select Access Token from the dropdown:
 
-![Appknox Plugin Configuration](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins7.png)
+![Appknox Plugin Token](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins10.png)
 
 #### Note:
 
-Ensure the Appknox Access Token ID matches with the ID given while configuring Appknox Access Token in the credentials.
+Ensure the Access Token matches with the Access Token given while configuring Appknox Access Token in the credentials.
+
+Add Other details in the Appknox Plugin Configuration:
+
+![Appknox Plugin Configuration](https://github.com/ashujha301/appknox-jenkins-plugin/blob/main/images/jenkins7.png)
+
 
 ## Appknox Plugin As Pipeline
 
@@ -76,7 +81,7 @@ stages {
                         // Perform Appknox scan using AppknoxPlugin
                         step([
                             $class: 'AppknoxPlugin',
-                            accessTokenID: 'your-accessToken-ID', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
+                            credentialsId: 'your-accessToken-ID', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
                             filePath: FILE_PATH,
                             riskThreshold: params.RISK_THRESHOLD.toUpperCase()
                         ])
@@ -105,41 +110,32 @@ pipeline {
     parameters {
         choice(name: 'RISK_THRESHOLD', choices: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], description: 'Risk Threshold')
     }
-    environment {
-        FILE_PATH = 'app/build/outputs/apk/debug/app.aab' //filepath to binary file
-    }
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/username/repo'
+                git 'https://github.com/yourgithub/reponame'
             }
         }
         stage('Build App') {
             steps {
-                // Build the app using specific Gradle version
+                // Build the app using specific build, Example is given using gradle
                 script {
-                    if (isUnix()) {
-                        sh './gradlew build'
-                    } else {
-                        bat './gradlew build'
-                    }
+                    sh './gradlew build'
+                    FILE_PATH = "${WORKSPACE}/app/build/outputs/apk/debug/app.aab"
                 }
             }
         }
         stage('Appknox Scan') {
             steps {
                 script {
-                    // Retrieve APPKNOX_ACCESS_TOKEN from Jenkins credentials
-                    withCredentials([string(credentialsId: 'appknox-access-token', variable: 'APPKNOX_ACCESS_TOKEN')]) {
                         // Perform Appknox scan using AppknoxPlugin
-                        echo "Using file path: ${FILE_PATH}"
                         step([
                             $class: 'AppknoxPlugin',
-                            accessToken: APPKNOX_ACCESS_TOKEN,
+                            credentialsId: 'your-appknox-access-token-id', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
                             filePath: FILE_PATH,
                             riskThreshold: params.RISK_THRESHOLD.toUpperCase()
                         ])
-                    }
+                    
                 }
             }
         }
@@ -147,4 +143,3 @@ pipeline {
 }
 
 ```
-
