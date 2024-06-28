@@ -1,3 +1,4 @@
+//Example pipeline script for customers app build using gradle.
 pipeline {
     agent any
     parameters {
@@ -6,7 +7,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/ashujha301/mfva'
+                git 'https://github.com/yourgithub/reponame'
             }
         }
         stage('Build App') {

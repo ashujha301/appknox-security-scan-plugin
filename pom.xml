@@ -8,16 +8,16 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>4.80</version>
+        <version>4.82</version>
     </parent>
     
     <groupId>io.jenkins.plugins</groupId>
-    <artifactId>appknox-jenkins-plugin</artifactId>
+    <artifactId>appknox-security-scan-plugin</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>hpi</packaging>
     
-    <name>Appknox Jenkins Plugin</name>
-    <url>https://github.com/ashujha301/appknox-jenkins-plugin</url>
+    <name>Appknox Security Scan Plugin</name>
+    <url>https://github.com/ashujha301/appknox-security-scan-plugin</url>
     
     <licenses>
         <license>
@@ -27,22 +27,22 @@
     </licenses>
     
     <scm>
-        <connection>scm:git:https://github.com/ashujha301/appknox-jenkins-plugin.git</connection>
-        <developerConnection>scm:git:https://github.com/ashujha301/appknox-jenkins-plugin.git</developerConnection>
+        <connection>scm:git:https://github.com/ashujha301/appknox-security-scan-plugin.git</connection>
+        <developerConnection>scm:git:https://github.com/ashujha301/appknox-security-scan-plugin</developerConnection>
         <url>https://github.com/ashujha301/appknox-jenkins-plugin</url>
         <tag>HEAD</tag>
     </scm>
     
     <properties>
-        <jenkins.version>2.414.3</jenkins.version>
-        <gitHubRepo>ashujha301/appknox-jenkins-plugin</gitHubRepo>
+        <jenkins.version>2.440.3</jenkins.version>
+        <gitHubRepo>ashujha301/appknox-security-scan-plugin</gitHubRepo>
     </properties>
     
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-2.414.x</artifactId>
+                <artifactId>bom-2.440.x</artifactId>
                 <version>2907.vcb_35d6f2f7de</version>
                 <type>pom</type>
                 <scope>import</scope>

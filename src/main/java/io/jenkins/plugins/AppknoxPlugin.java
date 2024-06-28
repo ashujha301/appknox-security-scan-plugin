@@ -14,10 +14,14 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.queue.Tasks;
 import hudson.security.ACL;
+import hudson.tasks.ArtifactArchiver;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
+import jenkins.model.ArtifactManager;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
+import jenkins.util.VirtualFile;
+
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.kohsuke.stapler.AncestorInPath;
@@ -34,16 +38,21 @@ import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
+import com.google.common.util.concurrent.Service.Listener;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import org.apache.commons.io.FileUtils;
 
 public class AppknoxPlugin extends Builder implements SimpleBuildStep {
@@ -75,28 +84,40 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     @Override
     public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener)
             throws InterruptedException, IOException {
-        boolean success = executeAppknoxCommands(listener);
-        if (!success) {
+        boolean success = executeAppknoxCommands(run, workspace, launcher, listener);
+
+        if (success) {
+            archiveArtifact(run, workspace, launcher, listener);
+        } else {
             run.setResult(Result.FAILURE);
         }
     }
 
-    private boolean executeAppknoxCommands(TaskListener listener) {
+    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, Launcher launcher,
+            TaskListener listener) {
         try {
             String os = System.getProperty("os.name").toLowerCase();
             String appknoxPath = downloadAndInstallAppknox(os, listener);
-
             String uploadOutput = uploadFile(appknoxPath, listener);
             String fileID = extractFileID(uploadOutput, listener);
             if (fileID == null) {
                 return false;
             }
 
-            return runCICheck(appknoxPath, fileID, listener);
+            runCICheck(appknoxPath, fileID, listener);
+
+            String reportOutput = createReport(appknoxPath, fileID, listener);
+            String reportID = extractReportID(reportOutput, listener);
+            if (reportID == null) {
+                return false;
+            }
+
+            downloadReportSummaryCSV(appknoxPath, reportID, run, workspace, listener);
         } catch (Exception e) {
             listener.getLogger().println("Error executing Appknox commands: " + e.getMessage());
             return false;
         }
+        return true;
     }
 
     private String extractFileID(String uploadOutput, TaskListener listener) {
@@ -111,6 +132,22 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             }
         } else {
             listener.getLogger().println("Upload output does not contain any lines.");
+            return null;
+        }
+    }
+
+    private String extractReportID(String createReportOutput, TaskListener listener) {
+        String[] lines = createReportOutput.split("\n");
+        if (lines.length > 0) {
+            String lastLine = lines[lines.length - 1].trim();
+            try {
+                return lastLine;
+            } catch (NumberFormatException e) {
+                listener.getLogger().println("Failed to extract Report ID from report output: " + lastLine);
+                return null;
+            }
+        } else {
+            listener.getLogger().println("Report output does not contain any lines.");
             return null;
         }
     }
@@ -148,16 +185,12 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     }
 
     private void downloadFile(String url, String destinationPath, TaskListener listener) throws IOException {
-        @SuppressWarnings("deprecation")
         URL downloadUrl = new URL(url);
         File destinationFile = new File(destinationPath);
-
-        // Ensure the parent directory exists
         File parentDir = destinationFile.getParentFile();
         if (!parentDir.exists() && !parentDir.mkdirs()) {
             throw new IOException("Failed to create directories: " + parentDir.getAbsolutePath());
         }
-
         FileUtils.copyURLToFile(downloadUrl, destinationFile);
 
         // Make the file executable (for Unix-based systems)
@@ -260,6 +293,99 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
+    private String createReport(String appknoxPath, String fileID, TaskListener listener)
+            throws IOException, InterruptedException {
+        String accessToken = getAccessToken(listener);
+        if (accessToken == null) {
+            return null;
+        }
+
+        List<String> command = new ArrayList<>();
+        command.add(appknoxPath);
+        command.add("reports");
+        command.add("create");
+        command.add(fileID);
+        command.add("--access-token");
+        command.add(accessToken);
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+
+        StringBuilder output = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+        }
+
+        listener.getLogger().println("Report Output:");
+        listener.getLogger().println(output.toString());
+
+        int exitValue = process.waitFor();
+        if (exitValue == 0) {
+            return output.toString().trim();
+        } else {
+            listener.getLogger().println("Report Creation failed with exit code: " + exitValue);
+            return null;
+        }
+    }
+
+    private void downloadReportSummaryCSV(String appknoxPath, String reportID, Run<?, ?> run, FilePath workspace,
+            TaskListener listener) throws IOException, InterruptedException {
+        String accessToken = getAccessToken(listener);
+        if (accessToken == null) {
+            listener.error("Access token is null. Unable to download CSV report.");
+            return;
+        }
+
+        List<String> command = new ArrayList<>();
+        command.add(appknoxPath);
+        command.add("reports");
+        command.add("download");
+        command.add("summary-csv");
+        command.add(reportID);
+        command.add("--access-token");
+        command.add(accessToken);
+        command.add("--output");
+        command.add(workspace.child("summary-report.csv").getRemote());
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+
+        int exitCode = process.waitFor();
+        if (exitCode == 0) {
+            listener.getLogger().println(
+                    "Summary report saved at:" + workspace.child("summary-report.csv").getRemote());
+        } else {
+            listener.getLogger().println("Download CSV failed. Exit code: " + exitCode);
+        }
+    }
+
+    private void archiveArtifact(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener) {
+        try {
+            FilePath artifactFile = workspace.child("summary-report.csv");
+
+            if (!artifactFile.exists()) {
+                listener.error("Artifact file does not exist: " + artifactFile.getRemote());
+                return;
+            }
+
+            ArtifactManager artifactManager = run.getArtifactManager();
+            Map<String, String> artifacts = new HashMap<>();
+            artifacts.put("summary-report.csv", artifactFile.getName());
+            artifactManager.archive(workspace, launcher, (BuildListener) listener, artifacts);
+
+            listener.getLogger().println("Artifact archived: " + artifactFile.getRemote());
+        } catch (IOException | InterruptedException e) {
+            listener.error("Error archiving artifact: " + e.getMessage());
+            e.printStackTrace(listener.getLogger());
+        }
+    }
+
     private String getAccessToken(TaskListener listener) {
         Jenkins jenkins = Jenkins.get();
         @SuppressWarnings("deprecation")
@@ -308,7 +434,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
         public FormValidation doCheckCredentialsId(@QueryParameter String value) {
             if (value.isEmpty()) {
-                return FormValidation.error("Appknox Access Token ID must not be empty");
+                return FormValidation.error("Appknox Access Token must be selected");
             }
             return FormValidation.ok();
         }
